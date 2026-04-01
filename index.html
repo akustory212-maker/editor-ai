@@ -72,20 +72,64 @@
             };
 
             const handleGenerate = async () => {
-                if (!images.length || !prompt) return setError("Pilih foto & isi instruksi!");
-                setIsGenerating(true); setError('');
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-                    const payload = {
-                        contents: [{
-                            parts: [
-                                { text: prompt },
-                                ...images.map(img => ({
-                                    inlineData: { mimeType: "image/jpeg", data: img.data.split(',')[1] }
-                                }))
-                            ]
-                        }],
-                        generationConfig: { responseModalities: ["IMAGE"] }
+                const handleGenerate = async () => {
+    if (!images.length || !prompt) return setError("Pilih foto & isi instruksi!");
+    setIsGenerating(true); 
+    setError('');
+    
+    try {
+        // MENGGUNAKAN MODEL STABIL gemini-1.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        
+        const payload = {
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    ...images.map(img => ({
+                        inlineData: { 
+                            mimeType: "image/jpeg", 
+                            data: img.data.split(',')[1] 
+                        }
+                    }))
+                ]
+            }],
+            generationConfig: {
+                responseModalities: ["IMAGE"]
+            }
+        };
+
+        const res = await fetch(url, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(payload) 
+        });
+
+        const data = await res.json();
+        
+        // JIKA ADA ERROR DARI GOOGLE
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        // AMBIL GAMBAR HASILNYA
+        const output = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+        
+        if (output) {
+            setResultImage(`data:image/jpeg;base64,${output}`);
+        } else {
+            // Jika AI hanya menjawab teks, tampilkan pesannya
+            const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            setError("AI tidak mengirim gambar, tapi berkata: " + (aiText || "Gagal."));
+        }
+    } catch (err) { 
+        setError("Waduh, ada masalah: " + err.message); 
+    } finally { 
+        setIsGenerating(false); 
+    }
+};],
+                        generationConfig: {
+    // Beri tahu AI untuk merespons dengan gambar
+    responseModalities: ["IMAGE"] }
                     };
                     const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     const data = await res.json();
