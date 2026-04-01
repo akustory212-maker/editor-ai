@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My AI Website</title>
-    <style>
-        /* Anda bisa menaruh kode CSS (desain) di sini */
-        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 20px; }
-    </style>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-zinc-900 text-white">
 
-    <h1>Website AI Saya</h1>
-    <div id="app">
-        </div>
+    <div id="root"></div>
 
-    <script>
-        // --- import React, { useState, useRef, useEffect } from 'react';
+    <script type="text/babel">
+        // Ambil fungsi React agar bisa dipakai tanpa 'import'
+        const { useState, useEffect, useRef } = React;
+
+        const App = () => {
+            // --- import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Image as ImageIcon, Wand2, Trash2, Download, Sun, Moon, Layers, Sparkles, AlertCircle, Loader2, Type, AlignLeft } from 'lucide-react';
 
 const App = () => {
@@ -630,9 +632,19 @@ const App = () => {
 };
 
 export default App; ---
-        // (Kode yang ada 'fetch', 'apiKey', dll harus di dalam tag script ini)
-        
-        console.log("Website siap!");
+            // (Mulai dari bagian 'const [darkMode, ...]' sampai sebelum baris ekspor)
+            
+            return (
+                <div class="p-10 text-center">
+                    <h1 class="text-3xl font-bold">Website AI Saya Berhasil Online!</h1>
+                    <p class="mt-4">Edit bagian ini dengan kode dari Gemini tadi.</p>
+                </div>
+            );
+        };
+
+        // Menampilkan website ke layar
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 
 </body>
