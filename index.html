@@ -3,35 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor AI SMM</title>
+    <title>AI Photo Studio | Sakti Version</title>
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+
+    <style>
+        .dark { background-color: #0f172a; color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+    </style>
 </head>
-<body class="bg-black text-white">
+<body class="bg-blue-50 dark:bg-slate-900 transition-colors duration-500">
 
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        // Mengambil fitur React dari CDN
+        const { useState, useRef, useEffect } = React;
+        const { 
+            Upload, Image: ImageIcon, Wand2, Trash2, Download, Sun, Moon, 
+            Layers, Sparkles, AlertCircle, Loader2, Type, AlignLeft 
+        } = LucideReact;
 
         const App = () => {
+            // --- GANTI API KEY ANDA DI SINI ---
+            const GEMINI_API_KEY = "MASUKKAN_KUNCI_API_GOOGLE_ANDA_DI_SINI";
+
+            // --- State Management ---
+            const [darkMode, setDarkMode] = useState(false);
+            const [activeTab, setActiveTab] = useState('product');
+            const [images, setImages] = useState([]);
+            const [prompt, setPrompt] = useState('');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [resultImage, setResultImage] = useState(null);
+            const [error, setError] = useState('');
+            const fileInputRef = useRef(null);
+
+            const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
+            const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
+            const [marketingCopy, setMarketingCopy] = useState('');
+
+            // --- Theme Toggle ---
+            useEffect(() => {
+                if (darkMode) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [darkMode]);
+
+            // --- Handlers ---
+            const handleTabChange = (tab) => {
+                setActiveTab(tab);
+                setImages([]);
+                setPrompt('');
+                setResultImage(null);
+                setError('');
+                setMarketingCopy('');
+            };
+
+            const processFile = (file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 512;
+                            const MAX_HEIGHT = 512;
+                            let width = img.width;
+                            let height = img.height;
+                            if (width > height) {
+                                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                            } else {
+                                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                            }
+                            canvas.width = width; canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            const handleFileUpload = async (e) => {
+                const files = Array.from(e.target.files);
+                if (!files.length) return;
+                try {
+                    setError('');
+                    let newImages = [];
+                    for (const file of files) {
+                        const base64Data = await processFile(file);
+                        newImages.push({ id: Date.now() + Math.random(), data: base64Data });
+                    }
+                    if (activeTab === 'product') setImages([newImages[0]]);
+                    else setImages(prev => [...prev, ...newImages].slice(0, 4));
+                } catch (err) { setError('Gagal memproses gambar.'); }
+            };
+
+            const handleEnhancePrompt = async () => {
+                if (!prompt.trim()) return setError('Ketik ide prompt dulu.');
+                setIsEnhancingPrompt(true);
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: `Perbagus prompt ini untuk AI Image: "${prompt}". Langsung berikan hasilnya saja.` }] }] })
+                    });
+                    const data = await res.json();
+                    setPrompt(data.candidates[0].content.parts[0].text.trim());
+                } catch (err) { setError('Gagal memperbagus prompt.'); }
+                finally { setIsEnhancingPrompt(false); }
+            };
+
+            const handleGenerate = async () => {
+                if (images.length === 0) return setError('Unggah foto dulu.');
+                setIsGenerating(true);
+                setError('');
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`;
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                ...images.map(img => {
+                                    const [prefix, data] = img.data.split(',');
+                                    return { inlineData: { mimeType: "image/jpeg", data } };
+                                })
+                            ]
+                        }],
+                        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+                    };
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const data = await res.json();
+                    const output = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                    if (output) setResultImage(`data:image/jpeg;base64,${output}`);
+                    else throw new Error('AI gagal membuat gambar.');
+                } catch (err) { setError(err.message); }
+                finally { setIsGenerating(false); }
+            };
+
             return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-4">
-                    <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full">
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent mb-4">
-                            Website AI Online!
-                        </h1>
-                        <p className="text-zinc-400 mb-6">
-                            Jika Anda melihat pesan ini, berarti website Anda sudah berhasil berjalan di Vercel.
-                        </p>
-                        <button 
-                            onClick={() => alert('Fitur AI siap dihubungkan!')}
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-full transition-all">
-                            Coba Klik Saya
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-950 dark:to-slate-900 p-4 md:p-8">
+                    <header className="max-w-6xl mx-auto flex items-center justify-between mb-8 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-4 rounded-2xl border border-white/20">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-600 p-2 rounded-xl text-white"><Sparkles /></div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">AI Photo Studio</h1>
+                        </div>
+                        <button onClick={() => setDarkMode(!darkMode)} className="p-2 bg-white dark:bg-slate-700 rounded-full shadow">
+                            {darkMode ? <Sun className="text-yellow-400" /> : <Moon className="text-slate-600" />}
                         </button>
-                    </div>
+                    </header>
+
+                    <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* KIRI: Input */}
+                        <div className="lg:col-span-5 space-y-6">
+                            <div className="flex p-1 bg-white/60 dark:bg-slate-800/60 rounded-xl">
+                                <button onClick={() => handleTabChange('product')} className={`flex-1 py-3 rounded-lg ${activeTab==='product'?'bg-blue-600 text-white':'dark:text-white'}`}>Foto Produk</button>
+                                <button onClick={() => handleTabChange('merge')} className={`flex-1 py-3 rounded-lg ${activeTab==='merge'?'bg-blue-600 text-white':'dark:text-white'}`}>Gabung Foto</button>
+                            </div>
+
+                            <div className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xl border border-white/40">
+                                {error && <div className="mb-4 p-3 bg-red-100 text-red-600 rounded-lg flex items-center gap-2"><AlertCircle size={18}/>{error}</div>}
+                                
+                                <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-blue-300 dark:border-slate-600 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition mb-4">
+                                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple={activeTab==='merge'} className="hidden" />
+                                    <Upload className="mx-auto mb-2 text-blue-500" />
+                                    <p className="dark:text-white">Klik untuk Unggah Foto</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    {images.map(img => (
+                                        <div key={img.id} className="relative aspect-square">
+                                            <img src={img.data} className="w-full h-full object-cover rounded-lg border dark:border-slate-600" />
+                                            <button onClick={()=>setImages(images.filter(i=>i.id!==img.id))} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full"><Trash2 size={14}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <textarea 
+                                    className="w-full h-32 p-4 rounded-xl border dark:bg-slate-900 dark:text-white dark:border-slate-700" 
+                                    placeholder="Tulis instruksi di sini..."
+                                    value={prompt}
+                                    onChange={(e)=>setPrompt(e.target.value)}
+                                />
+
+                                <div className="flex gap-2 mt-2">
+                                    <button onClick={handleEnhancePrompt} className="flex-1 bg-purple-100 text-purple-600 py-2 rounded-lg font-bold">✨ Perbagus</button>
+                                    <button onClick={handleGenerate} disabled={isGenerating} className="flex-[2] bg-blue-600 text-white py-2 rounded-lg font-bold">
+                                        {isGenerating ? "Proses..." : "Generate Foto"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* KANAN: Hasil */}
+                        <div className="lg:col-span-7">
+                            <div className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xl h-full flex flex-col border border-white/40">
+                                <h2 className="text-xl font-bold mb-4 dark:text-white">Hasil Editan</h2>
+                                <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-center overflow-hidden border dark:border-slate-700">
+                                    {isGenerating ? (
+                                        <div className="text-center text-blue-500">
+                                            <Loader2 className="mx-auto w-12 h-12 animate-spin mb-2" />
+                                            <p className="animate-pulse">Menyihir foto Anda...</p>
+                                        </div>
+                                    ) : resultImage ? (
+                                        <img src={resultImage} className="max-w-full max-h-[500px] object-contain" />
+                                    ) : (
+                                        <p className="text-slate-400">Hasil akan muncul di sini</p>
+                                    )}
+                                </div>
+                                {resultImage && (
+                                    <button onClick={()=>{const a=document.createElement('a'); a.href=resultImage; a.download='hasil.jpg'; a.click();}} className="mt-4 w-full bg-slate-900 text-white py-3 rounded-xl flex items-center justify-center gap-2">
+                                        <Download size={20}/> Simpan Gambar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </main>
                 </div>
             );
         };
