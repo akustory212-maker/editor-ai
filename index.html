@@ -3,39 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Photo Studio - Fixed</title>
+    <title>AI Photo Studio - Anti Gagal</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js"></script>
 
     <style>
         .dark { background-color: #0f172a; color: #f8fafc; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        .loading-animation { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
-<body class="bg-blue-50 dark:bg-slate-900 transition-colors duration-500">
+<body class="bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
     <div id="root"></div>
 
     <script type="text/babel">
-        // 3. Ambil fitur dari perpustakaan yang sudah di-load
         const { useState, useRef, useEffect } = React;
-        
-        // Safety check: Jika LucideReact gagal load, pakai objek kosong dulu agar tidak blank
-        const Icons = window.LucideReact || {};
-        const { 
-            Upload, Image: ImageIcon, Wand2, Trash2, Download, Sun, Moon, 
-            Layers, Sparkles, AlertCircle, Loader2, Type, AlignLeft 
-        } = Icons;
 
         const App = () => {
-            // --- PASANG API KEY ANDA DI SINI ---
-            const GEMINI_API_KEY = "AIzaSyD4q8HoPaBbluuVgxdBXrfB2Kl1SjFYquo";
+            // --- MASUKKAN API KEY ANDA DI SINI ---
+            const GEMINI_API_KEY = "AIzaSyAvxBXs78h5vDt2gJwYXj2WrTcKvZx7LqE";
 
             const [darkMode, setDarkMode] = useState(false);
             const [activeTab, setActiveTab] = useState('product');
@@ -79,11 +68,11 @@
                     }
                     if (activeTab === 'product') setImages([newImgs[0]]);
                     else setImages(prev => [...prev, ...newImgs].slice(0, 4));
-                } catch (err) { setError("Gagal upload gambar."); }
+                } catch (err) { setError("Gagal unggah foto."); }
             };
 
             const handleGenerate = async () => {
-                if (!images.length || !prompt) return setError("Lengkapi foto & instruksi!");
+                if (!images.length || !prompt) return setError("Pilih foto & isi instruksi!");
                 setIsGenerating(true); setError('');
                 try {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`;
@@ -100,92 +89,77 @@
                     };
                     const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     const data = await res.json();
-                    
                     if (data.error) throw new Error(data.error.message);
-
                     const output = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
                     if (output) setResultImage(`data:image/jpeg;base64,${output}`);
-                    else setError("AI tidak memberikan hasil. Coba prompt lain.");
-                } catch (err) { setError("Waduh: " + err.message); }
+                    else setError("AI tidak merespons. Coba lagi.");
+                } catch (err) { setError("Error: " + err.message); }
                 finally { setIsGenerating(false); }
             };
 
             return (
-                <div className="max-w-4xl mx-auto p-4 md:p-10 min-h-screen flex flex-col">
-                    <header className="flex justify-between items-center mb-10 p-5 bg-white/40 dark:bg-slate-800/40 rounded-3xl backdrop-blur-xl border border-white/20 shadow-xl">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-2 rounded-xl text-white">
-                                {Sparkles ? <Sparkles size={24} /> : "✨"}
-                            </div>
-                            <h1 className="text-2xl font-black tracking-tight dark:text-white">STUDIO AI</h1>
+                <div className="max-w-4xl mx-auto p-4 md:p-10 font-sans">
+                    <header className="flex justify-between items-center mb-8 p-6 bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                            <span className="text-3xl">✨</span>
+                            <h1 className="text-2xl font-black dark:text-white">AI STUDIO</h1>
                         </div>
-                        <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-white dark:bg-slate-700 rounded-2xl shadow-lg transition-transform active:scale-90">
-                            {darkMode ? <Sun className="text-yellow-400" /> : <Moon className="text-slate-600" />}
+                        <button onClick={() => setDarkMode(!darkMode)} className="text-2xl p-2 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                            {darkMode ? "☀️" : "🌙"}
                         </button>
                     </header>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                        {/* INPUT SECTION */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-6">
                             <div className="flex bg-slate-200 dark:bg-slate-800 p-1.5 rounded-2xl">
-                                <button onClick={() => handleTabChange('product')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${activeTab==='product'?'bg-blue-600 text-white shadow-lg':'dark:text-slate-400'}`}>Edit Produk</button>
-                                <button onClick={() => handleTabChange('merge')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${activeTab==='merge'?'bg-blue-600 text-white shadow-lg':'dark:text-slate-400'}`}>Gabung Foto</button>
+                                <button onClick={() => setActiveTab('product')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${activeTab==='product'?'bg-blue-600 text-white shadow-lg':'dark:text-slate-400'}`}>Edit Produk</button>
+                                <button onClick={() => setActiveTab('merge')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${activeTab==='merge'?'bg-blue-600 text-white shadow-lg':'dark:text-slate-400'}`}>Gabung Foto</button>
                             </div>
                             
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-2xl border border-white/10">
-                                {error && <div className="mb-4 p-4 bg-red-100 text-red-600 rounded-2xl flex items-center gap-2 font-medium"> <AlertCircle size={20}/> {error} </div>}
+                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800">
+                                {error && <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold">⚠️ {error}</div>}
                                 
-                                <div onClick={() => fileInputRef.current.click()} className="group border-2 border-dashed border-blue-400/50 p-10 text-center rounded-3xl cursor-pointer mb-6 hover:bg-blue-50 dark:hover:bg-slate-700/50 transition-all">
+                                <div onClick={() => fileInputRef.current.click()} className="border-4 border-dotted border-blue-500/30 p-10 text-center rounded-3xl cursor-pointer mb-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-all">
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} multiple={activeTab==='merge'} />
-                                    {Upload ? <Upload className="mx-auto text-blue-500 mb-3 group-hover:scale-110 transition-transform" size={40} /> : "📁"}
-                                    <p className="font-bold dark:text-white">Unggah Foto Anda</p>
-                                    <p className="text-xs text-slate-500 mt-1">Klik untuk pilih file</p>
+                                    <div className="text-4xl mb-2">📁</div>
+                                    <p className="font-bold dark:text-white">Ketuk untuk Unggah Foto</p>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-3 mb-6">
+                                <div className="grid grid-cols-4 gap-2 mb-6">
                                     {images.map(img => (
                                         <div key={img.id} className="relative aspect-square">
-                                            <img src={img.data} className="w-full h-full object-cover rounded-xl border-2 border-blue-500 shadow-md" />
-                                            <button onClick={()=>setImages(images.filter(i=>i.id!==img.id))} className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform">
-                                                <Trash2 size={12}/>
-                                            </button>
+                                            <img src={img.data} className="w-full h-full object-cover rounded-xl border-2 border-blue-500" />
+                                            <button onClick={()=>setImages(images.filter(i=>i.id!==img.id))} className="absolute -top-2 -right-2 bg-red-500 text-white text-xs p-1 rounded-full">❌</button>
                                         </div>
                                     ))}
                                 </div>
 
-                                <textarea 
-                                    className="w-full p-5 rounded-2xl border dark:bg-slate-900 dark:text-white dark:border-slate-700 h-32 focus:ring-4 ring-blue-500/20 outline-none transition-all" 
-                                    placeholder="Contoh: Jadikan foto ini elegan dengan latar belakang studio..." 
-                                    value={prompt} 
-                                    onChange={(e)=>setPrompt(e.target.value)} 
-                                />
-
-                                <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-600/30 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50">
-                                    {isGenerating ? "MANTRA SEDANG BEKERJA..." : "SULAP FOTO SEKARANG"}
+                                <textarea className="w-full p-4 rounded-2xl border dark:bg-slate-950 dark:text-white dark:border-slate-800 h-28 outline-none focus:ring-2 ring-blue-500" placeholder="Instruksi AI..." value={prompt} onChange={(e)=>setPrompt(e.target.value)} />
+                                <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 disabled:opacity-50">
+                                    {isGenerating ? "🌀 SEDANG MENYIHIR..." : "SULAP FOTO SEKARANG"}
                                 </button>
                             </div>
                         </div>
 
-                        {/* RESULT SECTION */}
-                        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center justify-center min-h-[500px] border border-white/10">
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-xl flex flex-col items-center justify-center min-h-[400px] border border-slate-200 dark:border-slate-800 text-center">
                             {resultImage ? (
-                                <div className="w-full animate-in fade-in zoom-in duration-500">
-                                    <img src={resultImage} className="rounded-2xl shadow-2xl max-h-[550px] mx-auto border-4 border-white dark:border-slate-700" />
-                                    <button onClick={()=>{const a=document.createElement('a'); a.href=resultImage; a.download='ai-magic.jpg'; a.click();}} className="mt-6 w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90">
-                                        <Download size={20}/> SIMPAN HASIL
+                                <div className="w-full">
+                                    <img src={resultImage} className="rounded-2xl max-h-[500px] mx-auto shadow-2xl mb-4" />
+                                    <button onClick={()=>{const a=document.createElement('a'); a.href=resultImage; a.download='hasil-ai.jpg'; a.click();}} className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+                                        📥 SIMPAN HASIL
                                     </button>
                                 </div>
                             ) : (
-                                <div className="text-slate-400 text-center">
+                                <div className="text-slate-400">
                                     {isGenerating ? (
-                                        <div className="flex flex-col items-center">
-                                            <Loader2 className="animate-spin w-16 h-16 mb-4 text-blue-500" />
-                                            <p className="font-bold text-blue-500 animate-pulse">Sedang memproses...</p>
+                                        <div className="loading-animation">
+                                            <div className="text-6xl mb-4">🪄</div>
+                                            <p className="font-bold text-blue-500">AI sedang memproses...</p>
                                         </div>
                                     ) : (
                                         <>
-                                            {ImageIcon ? <ImageIcon size={64} className="mx-auto mb-4 opacity-20" /> : "🖼️"}
-                                            <p className="font-medium">Hasil sulap akan muncul di sini</p>
+                                            <div className="text-6xl mb-4 opacity-20">🖼️</div>
+                                            <p className="font-bold">Hasil akan muncul di sini</p>
                                         </>
                                     )}
                                 </div>
